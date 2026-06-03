@@ -1,0 +1,119 @@
+/set origin
+speed 10
+move 0 0 10
+move 12 5 0
+move 0 0 -9.910
+
+/line 1A 
+speed 5
+trigwait 0.3
+trigvalverel
+move  0 10 0
+move -9 20 0
+move 0 10 0 
+valverel
+move 0 0 2
+
+move 9.5 -40 0
+move 0 0 -2
+
+/line 1B 
+speed 5
+trigwait 0.3
+trigvalverel
+move  0 10 0
+move -9 20 0
+move 0 10 0 
+valverel
+move 0 0 2
+
+move 9.5 -40 0
+move 0 0 -2
+
+/line 2A
+speed 5
+trigwait 0.3
+trigvalverel
+move 0 10 0
+move -4 20 0
+move 0 10 0
+valverel
+move 0 0 2
+
+move 4.5 -40 0
+move 0 0 -2
+
+/line 2B
+speed 5
+trigwait 0.3
+trigvalverel
+move 0 10 0
+move -4 20 0
+move 0 10 0
+valverel
+move 0 0 2
+
+move 4.5 -40 0
+move 0 0 -2
+
+/line 3
+speed 5
+trigwait 0.3
+trigvalverel
+move 0 40 0
+valverel
+move 0 0 2
+
+move 0.5 -40 0
+move 0 0 -2
+
+/line 4A
+speed 5
+trigwait 0.3
+trigvalverel
+move 0 10 0
+move 4 20 0
+move 0 10 0
+valverel
+move 0 0 2
+
+move -3.5 -40 0
+move 0 0 -2
+
+/line 4B
+speed 5
+trigwait 0.3
+trigvalverel
+move 0 10 0
+move 4 20 0
+move 0 10 0
+valverel
+move 0 0 2
+
+move -3.5 -40 0
+move 0 0 -2
+
+/line 5A
+speed 5
+trigwait 0.3
+trigvalverel
+move 0 10 0
+move 9 20 0
+move 0 10 0
+valverel
+move 0 0 2
+
+move -8.5 -40 0
+move 0 0 -2 
+
+/line 5B
+speed 5
+trigwait 0.3
+trigvalverel
+move 0 10 0
+move 9 20 0
+move 0 10 0
+valverel
+move 0 0 2
+//end
+move 0 0 8

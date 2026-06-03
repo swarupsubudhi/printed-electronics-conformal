@@ -1,0 +1,132 @@
+speed 5
+
+/start from bottom-left edge
+
+move 22  45  10
+move 0  0  -9.900
+
+wait 0
+trigwait 0
+trigvalverel
+move  2  0  0
+move  0  2  0
+move  -2  0  0
+move  0  -2  0
+
+/start of filling top contact pad
+move  0.1  0.1  0   ;fill-line1-2
+move  0  1.8  0
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line3-4
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line5-6
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line7-8
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line9-10
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line11-12
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line13-14
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line15-16
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line17-18
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line19-20
+move  0.1  0.1  0
+
+valverel
+/end of filling bottom contact pad
+
+move  0  0  2
+move  -2  -44  0
+move  0  0  -2
+
+wait 0
+trigwait 0
+trigvalverel
+move  2  0  0
+move  0  2  0
+move  -2  0  0
+move  0  -2  0
+
+/start of filling bottom contact pad
+move  0.1  0.1  0   ;fill-line1-2
+move  0  1.8  0
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line3-4
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line5-6
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line7-8
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line9-10
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line11-12
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line13-14
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line15-16
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line17-18
+move  0.1  0  0
+move  0  -1.8  0
+move  0.1  0  0
+
+move  0  1.8  0 	;fill-line19-20
+move  0.1  0.1  0
+
+valverel
+/end of filling bottom contact pad

@@ -1,0 +1,119 @@
+speed 5
+
+/start from bottom-left edge
+
+move 1  45  10
+move 0  0  -9.900
+
+wait 0
+trigwait 0
+trigvalverel
+move  4  0  0
+move  0  5  0
+move  -4  0  0
+move  0  -5  0
+
+/start of filling bottom contact pad
+move  0.1  0.1  0   ;fill-line1-2
+move  0  4.8  0
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line3-4
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line5-6
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line7-8
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line9-10
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line11-12
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line13-14
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line15-16
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line17-18
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line19-20
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line21-22
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line23-24
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line25-26
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line27-28
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line29-30
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line31-32
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line33-34
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line35-36
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line37-38
+move  0.1  0  0
+move  0  -4.8  0
+move  0.1  0  0
+
+move  0  4.8  0 	;fill-line39-40
+
+
+valverel
+/end of filling bottom contact pad
+
+move  0.1  0.1  10
