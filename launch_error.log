@@ -1,0 +1,13 @@
+[Fri 04/03/2026  2:13:04.77] ERROR: pythonw not found. 
+Install Python 3.11+ and ensure it is on the system PATH, 
+or create a virtual environment in .venv\ by running: 
+    python -m venv .venv 
+    .venv\Scripts\pip install customtkinter numpy scipy matplotlib pandas openpyxl 
+^Cinvalid command name "1494749155072update"
+    while executing
+"1494749155072update"
+    ("after" script)
+invalid command name "1494746593088check_dpi_scaling"
+    while executing
+"1494746593088check_dpi_scaling"
+    ("after" script)
