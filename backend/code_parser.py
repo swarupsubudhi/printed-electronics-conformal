@@ -539,7 +539,7 @@ def reconstruct_lines(result: ParsedCode,
         out.extend(block.preamble_raw)
         for mv in block.moves:
             out.append(mv.raw)
-        out.append("valverel")
+        # valverel is already the first raw line of travels[i] / footer_raw
         if i < len(result.travels):
             out.extend(result.travels[i].raw_lines)
 

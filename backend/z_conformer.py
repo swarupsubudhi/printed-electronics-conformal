@@ -146,8 +146,19 @@ class ConformResult:
     warnings:    list[str]       = field(default_factory=list)
 
     def write(self, filepath: str | Path, encoding: str = "utf-8") -> None:
-        Path(filepath).write_text("\r\n".join(self.lines), encoding=encoding)
-        print(f"[conform] wrote '{filepath}'  ({len(self.lines)} lines)")
+        # Normalise before writing:
+        #   - rstrip() removes stray trailing \r (prevents \r\r\n on re-runs)
+        #   - drop blank lines entirely (nScrypt ignores them; the / comments
+        #     already delineate sections, and prior runs injected one phantom
+        #     blank per line via \r\r\n + splitlines)
+        # Then write with newline="" so the explicit \r\n is preserved exactly
+        # and the OS does NOT translate \n -> \r\n on top of it.
+        cleaned = [ln.rstrip() for ln in self.lines]
+        cleaned = [ln for ln in cleaned if ln != ""]
+
+        text = "\r\n".join(cleaned) + "\r\n"
+        Path(filepath).write_text(text, encoding=encoding, newline="")
+        print(f"[conform] wrote '{filepath}'  ({len(cleaned)} lines)")
 
     def summary(self) -> str:
         lines = [f"ConformResult  {len(self.block_stats)} block(s)"]
@@ -410,7 +421,7 @@ def conform(
             out.extend(block.preamble_raw)
             for mv in block.moves:
                 out.append(mv.raw)
-            out.append("valverel")
+            # valverel comes from the travel/footer raw_lines, not appended here
             if i < len(parsed_code.travels):
                 out.extend(parsed_code.travels[i].raw_lines)
             h_prev_end = 0.0
@@ -432,7 +443,8 @@ def conform(
             cfg           = cfg,
         )
         out.extend(block_lines)
-        out.append("valverel")
+        # NOTE: no explicit valverel here — the following travel segment's
+        # raw_lines (or footer_raw for the last block) already begins with it.
 
         # ── Diagnostics ───────────────────────────────────────────────────────
         result.block_stats.append(BlockStat(
