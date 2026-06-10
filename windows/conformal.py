@@ -41,13 +41,13 @@ from ui.top_view_panel    import TopViewPanel
 from ui.surface_plot_panel import SurfacePlotPanel
 
 # Backend imports
-from code_parser    import parse,  ParsedCode
-from scan_loader    import load_scan, LoadedScan
-from origin_matcher import compute_offset, OriginMatch
-from surface_fit    import fit_all, SurfaceFitConfig, FittedSurface
-from interpolation  import Algorithm
-from z_conformer    import conform, ConformConfig
-from preset         import Preset, from_configs, save as save_preset, to_configs
+from backend.code_parser    import parse,  ParsedCode
+from backend.scan_loader    import load_scan, LoadedScan
+from backend.origin_matcher import compute_offset, OriginMatch
+from backend.surface_fit    import fit_all, SurfaceFitConfig, FittedSurface
+from backend.interpolation  import Algorithm
+from backend.z_conformer    import conform, ConformConfig
+from backend.preset         import Preset, from_configs, save as save_preset, to_configs
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -60,9 +60,10 @@ class ConformalWindow(ctk.CTkToplevel):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title(f"{APP_TITLE} — Conformal toolpath")
+        self.title(f"{APP_TITLE} — Conformal Toolpath")
         self.geometry(CONFORMAL_SIZE)
-        self.minsize(900, 600)
+        self.minsize(500, 400)
+        self.maxsize(1920, 1180)
 
         # ── State ─────────────────────────────────────────────────────────
         self._scan_path  = tk.StringVar()
@@ -111,10 +112,10 @@ class ConformalWindow(ctk.CTkToplevel):
         self.grid_rowconfigure(1, weight=1)
 
         # ── Title bar ─────────────────────────────────────────────────────
-        hdr = ctk.CTkFrame(self, corner_radius=0, fg_color=COL_ACCENT, height=40)
+        hdr = ctk.CTkFrame(self, corner_radius=0, fg_color=COL_ACCENT, height=60)
         hdr.grid(row=0, column=0, sticky="ew")
         ctk.CTkLabel(
-            hdr, text="Conformal toolpath",
+            hdr, text="Conformal Toolpath",
             font=FONT_TITLE, text_color="white",
         ).pack(side="left", padx=PAD)
         self._step_lbl = ctk.CTkLabel(
@@ -124,8 +125,9 @@ class ConformalWindow(ctk.CTkToplevel):
         self._step_lbl.pack(side="right", padx=PAD)
 
         # ── Panel container ───────────────────────────────────────────────
-        self._container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        self._container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent", width=600, height=500)
         self._container.grid(row=1, column=0, sticky="nsew")
+        self._container.grid_propagate(False)
         self._container.grid_columnconfigure(0, weight=1)
         self._container.grid_rowconfigure(0, weight=1)
 
@@ -537,9 +539,9 @@ class ConformalWindow(ctk.CTkToplevel):
     # ── Block data builder (for plots) ────────────────────────────────────────
 
     def _build_block_data(self, block_index: int) -> dict:
-        from scan_loader    import nearest_line
-        from surface_fit    import surface_for_step
-        from interpolation  import run as interp_run
+        from backend.scan_loader    import nearest_line
+        from backend.surface_fit    import surface_for_step
+        from backend.interpolation  import run as interp_run
 
         blk  = self._parsed_code.blocks[block_index]
         cfg  = self._read_conform_cfg()
@@ -549,7 +551,7 @@ class ConformalWindow(ctk.CTkToplevel):
         surf      = surface_for_step(self._surfaces, step_scan)
         scan_ln   = nearest_line(self._loaded_scan, step_scan)
 
-        from z_conformer import _sweep_positions_scan
+        from backend.z_conformer import _sweep_positions_scan
         s_code = _sweep_positions_scan(
             blk, self._origin, self._loaded_scan.sweep_axis
         )
@@ -618,7 +620,7 @@ class ConformalWindow(ctk.CTkToplevel):
             messagebox.showerror("Preset error", str(exc))
 
     def _load_preset(self):
-        from preset import load as load_preset
+        from backend.preset import load as load_preset
         path = filedialog.askopenfilename(
             title="Load preset",
             filetypes=[("nScrypt preset", "*.nsp"), ("All files", "*.*")],

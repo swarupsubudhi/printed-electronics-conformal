@@ -22,7 +22,7 @@ class HubWindow(ctk.CTk):
         super().__init__()
         self.title(APP_TITLE)
         self.geometry(HUB_SIZE)
-        self.resizable(False, False)
+        self.resizable(True, True)    # Allow resizing, but the grid layout will keep things neat
 
         self._build_ui()
 
@@ -40,14 +40,14 @@ class HubWindow(ctk.CTk):
             hdr, text="nScryptConformal", font=("Segoe UI", 22, "bold"),
         ).pack(side="left")
         ctk.CTkLabel(
-            hdr, text="v2.0", font=("Segoe UI", 13),
+            hdr, text="v2.1", font=("Segoe UI", 13),
             text_color=("gray50", "gray60"),
         ).pack(side="left", padx=(6, 0), anchor="s", pady=(0, 3))
 
         # ── Button grid ───────────────────────────────────────────────────────
         grid = ctk.CTkFrame(self, fg_color="transparent")
         grid.grid(row=1, column=0, sticky="nsew", padx=PAD, pady=PAD)
-        grid.grid_columnconfigure((0, 1), weight=1)
+        grid.grid_columnconfigure((0, 1), weight=1, uniform="equal")
         grid.grid_rowconfigure((0, 1), weight=1)
 
         BTN_H = 100
@@ -55,25 +55,25 @@ class HubWindow(ctk.CTk):
         # Button spec: (text, subtitle, colour, hover, row, col, handler)
         buttons = [
             (
-                "Conformal toolpath",
-                "Single scan · save preset",
+                "Conformal Toolpath",
+                "Parallel Lines · 2D Pattern . Save Preset",
                 COL_ACCENT, "#3C3489",
                 0, 0, self._open_conformal,
-            ),
-            (
-                "Batch conformal",
-                "Batch run from saved preset",
-                COL_AMBER, "#854F0B",
-                0, 1, self._open_batch_conformal,
             ),
             (
                 "Curved toolpath",
                 "Single scan · curved paths",
                 COL_TEAL, "#0F6E56",
-                1, 0, self._open_curved,
+                0, 1, self._open_curved,
             ),
             (
-                "Toolpath generator",
+                "Batch Process",
+                "Batch run from saved preset",
+                COL_AMBER, "#854F0B",
+                1, 0, self._open_batch_conformal,
+            ),
+            (
+                "Toolpath Generator",
                 "Write · visualise · export",
                 COL_CORAL, "#993C1D",
                 1, 1, self._open_toolpath_gen,
@@ -110,9 +110,11 @@ class HubWindow(ctk.CTk):
         # ── Footer ────────────────────────────────────────────────────────────
         ctk.CTkLabel(
             self,
-            text="nScrypt conformal surface toolpath generator",
+            text="This system is designed for working with nScrypt 3Dn. © 2026 Apache 2.0 License. Developed by Swarup Subudhi",
             font=FONT_SMALL,
             text_color=("gray50", "gray60"),
+            wraplength=200,
+            justify="center",
         ).grid(row=2, column=0, pady=(0, PAD_S))
 
     # ── Mode launchers ────────────────────────────────────────────────────────

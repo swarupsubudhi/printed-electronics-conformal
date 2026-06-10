@@ -168,11 +168,11 @@ move  0.000  0.000  -2.000
 
 class ToolpathGenWindow(ctk.CTkToplevel):
 
-    _SIDEBAR_W = 190   # fixed sidebar width (px)
+    _SIDEBAR_W = 230   # fixed sidebar width (px)
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title(f"{APP_TITLE} — Toolpath generator")
+        self.title(f"{APP_TITLE} — Toolpath Generator")
         self.geometry(TOOLPATH_GEN_SIZE)
         self.minsize(960, 560)
 
@@ -196,9 +196,9 @@ class ToolpathGenWindow(ctk.CTkToplevel):
 
         # Header
         hdr = ctk.CTkFrame(self, corner_radius=0,
-                           fg_color=COL_CORAL, height=40)
+                           fg_color=COL_CORAL, height=60)
         hdr.grid(row=0, column=0, columnspan=3, sticky="ew")
-        ctk.CTkLabel(hdr, text="Toolpath generator",
+        ctk.CTkLabel(hdr, text="Toolpath Generator",
                      font=FONT_TITLE, text_color="white").pack(
             side="left", padx=PAD)
         ctk.CTkLabel(hdr, text="Write · visualise · export",

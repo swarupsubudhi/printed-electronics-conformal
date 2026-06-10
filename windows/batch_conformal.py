@@ -32,12 +32,12 @@ from ui.theme import (
 )
 from ui.surface_plot_panel import SurfacePlotPanel
 
-from code_parser    import parse
-from scan_loader    import load_scan
-from origin_matcher import compute_offset
-from surface_fit    import fit_all, SurfaceFitConfig
-from z_conformer    import conform
-from preset         import load as load_preset, to_configs
+from backend.code_parser    import parse
+from backend.scan_loader    import load_scan
+from backend.origin_matcher import compute_offset
+from backend.surface_fit    import fit_all, SurfaceFitConfig
+from backend.z_conformer    import conform
+from backend.preset         import load as load_preset, to_configs
 
 
 class BatchConformalWindow(ctk.CTkToplevel):
@@ -278,10 +278,10 @@ class BatchConformalWindow(ctk.CTkToplevel):
                     state["result"] = result
 
                     # Build plot data for first block of this file
-                    from scan_loader   import nearest_line
-                    from surface_fit   import surface_for_step
-                    from interpolation import run as interp_run
-                    from z_conformer   import _sweep_positions_scan
+                    from backend.scan_loader   import nearest_line
+                    from backend.surface_fit   import surface_for_step
+                    from backend.interpolation import run as interp_run
+                    from backend.z_conformer   import _sweep_positions_scan
 
                     blk      = parsed.blocks[0]
                     sx0, sy0 = match.to_scan(*blk.abs_start[:2])
