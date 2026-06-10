@@ -19,7 +19,6 @@ import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from mpl_toolkits.mplot3d import Axes3D          # noqa: F401 — registers projection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
@@ -39,6 +38,7 @@ class SurfacePlotPanel(ctk.CTkFrame):
     def __init__(self, parent, **kw):
         super().__init__(parent, **kw)
         self._data: list[dict] = []   # list of block-data dicts
+        self._current_idx = 0         # index of the line shown on the Lines tab
         self._build_ui()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -59,13 +59,36 @@ class SurfacePlotPanel(ctk.CTkFrame):
             tab.grid_rowconfigure(0, weight=1)
 
         # ── Lines tab ─────────────────────────────────────────────────────
+        # One line shown at a time; navigate via dropdown + ◄ ► arrows.
+        self._tab_lines.grid_rowconfigure(0, weight=0)   # control bar
+        self._tab_lines.grid_rowconfigure(1, weight=1)   # canvas (expands)
+        self._tab_lines.grid_rowconfigure(2, weight=0)   # matplotlib toolbar
+
+        ctrl = ctk.CTkFrame(self._tab_lines, fg_color="transparent")
+        ctrl.grid(row=0, column=0, sticky="ew", padx=PAD_S, pady=(PAD_S, 0))
+
+        self._line_var = tk.StringVar(value="—")
+        self._prev_btn = ctk.CTkButton(
+            ctrl, text="◄", width=34, command=self._prev_line)
+        self._prev_btn.pack(side="left")
+        self._line_menu = ctk.CTkOptionMenu(
+            ctrl, variable=self._line_var, values=["—"], width=170,
+            font=FONT_SMALL, command=self._on_line_selected)
+        self._line_menu.pack(side="left", padx=PAD_S)
+        self._next_btn = ctk.CTkButton(
+            ctrl, text="►", width=34, command=self._next_line)
+        self._next_btn.pack(side="left")
+        self._line_count_lbl = ctk.CTkLabel(
+            ctrl, text="", font=FONT_SMALL, text_color=("gray50", "gray60"))
+        self._line_count_lbl.pack(side="left", padx=PAD)
+
         self._lines_fig = plt.figure(figsize=(7, 3), tight_layout=True)
         self._lines_canvas = FigureCanvasTkAgg(self._lines_fig,
                                                master=self._tab_lines)
-        self._lines_canvas.get_tk_widget().grid(row=0, column=0,
+        self._lines_canvas.get_tk_widget().grid(row=1, column=0,
                                                 sticky="nsew")
         tb_frame = ctk.CTkFrame(self._tab_lines, fg_color="transparent", height=28)
-        tb_frame.grid(row=1, column=0, sticky="ew")
+        tb_frame.grid(row=2, column=0, sticky="ew")
         NavigationToolbar2Tk(self._lines_canvas, tb_frame).update()
 
         # ── 3D tab ────────────────────────────────────────────────────────
@@ -87,6 +110,9 @@ class SurfacePlotPanel(ctk.CTkFrame):
         self._stats_text.grid(row=0, column=0, sticky="nsew",
                                padx=PAD_S, pady=PAD_S)
 
+        # Set the selector to its empty/disabled state initially
+        self._refresh_line_selector()
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def update(self, block_data: list[dict]):
@@ -106,23 +132,30 @@ class SurfacePlotPanel(ctk.CTkFrame):
             n_bisected   int
         """
         self._data = block_data
+        self._current_idx = 0
+        self._refresh_line_selector()
         self._draw_lines()
         self._draw_3d()
         self._draw_stats()
 
     def update_single(self, block_dict: dict):
-        """Add/replace one block's data and redraw only the Lines tab."""
+        """Add/replace one block's data and show it on the Lines tab."""
         label = block_dict["label"]
         for i, d in enumerate(self._data):
             if d["label"] == label:
                 self._data[i] = block_dict
+                idx = i
                 break
         else:
             self._data.append(block_dict)
+            idx = len(self._data) - 1
+        self._current_idx = idx          # jump to the line just updated
+        self._refresh_line_selector()
         self._draw_lines()
 
     def clear(self):
         self._data = []
+        self._current_idx = 0
         for fig in (self._lines_fig, self._3d_fig):
             fig.clf()
         for canvas in (self._lines_canvas, self._3d_canvas):
@@ -130,65 +163,108 @@ class SurfacePlotPanel(ctk.CTkFrame):
         self._stats_text.configure(state="normal")
         self._stats_text.delete("1.0", "end")
         self._stats_text.configure(state="disabled")
+        self._refresh_line_selector()
+
+    # ── Line navigation (one at a time) ───────────────────────────────────────
+
+    def _refresh_line_selector(self):
+        """Sync dropdown values, count label, and arrow states to the data."""
+        n = len(self._data)
+        if n == 0:
+            self._line_menu.configure(values=["—"])
+            self._line_var.set("—")
+            self._line_count_lbl.configure(text="")
+            self._prev_btn.configure(state="disabled")
+            self._next_btn.configure(state="disabled")
+            return
+        self._current_idx = max(0, min(self._current_idx, n - 1))
+        labels = [d["label"] for d in self._data]
+        self._line_menu.configure(values=labels)
+        self._line_var.set(labels[self._current_idx])
+        self._line_count_lbl.configure(
+            text=f"Line {self._current_idx + 1} of {n}")
+        self._prev_btn.configure(
+            state="normal" if self._current_idx > 0 else "disabled")
+        self._next_btn.configure(
+            state="normal" if self._current_idx < n - 1 else "disabled")
+
+    def _on_line_selected(self, choice: str):
+        for i, d in enumerate(self._data):
+            if d["label"] == choice:
+                self._current_idx = i
+                break
+        self._refresh_line_selector()
+        self._draw_lines()
+
+    def _prev_line(self):
+        if self._current_idx > 0:
+            self._current_idx -= 1
+            self._refresh_line_selector()
+            self._draw_lines()
+
+    def _next_line(self):
+        if self._current_idx < len(self._data) - 1:
+            self._current_idx += 1
+            self._refresh_line_selector()
+            self._draw_lines()
 
     # ── Lines tab ─────────────────────────────────────────────────────────────
 
     def _draw_lines(self):
-        fig  = self._lines_fig
+        """Draw ONLY the currently-selected line (one at a time)."""
+        fig = self._lines_fig
         fig.clf()
-        n    = len(self._data)
+        n = len(self._data)
         if n == 0:
             self._lines_canvas.draw_idle()
             return
 
-        gs = gridspec.GridSpec(n, 1, figure=fig, hspace=0.55)
+        idx = max(0, min(self._current_idx, n - 1))
+        d   = self._data[idx]
 
-        for i, d in enumerate(self._data):
-            ax = fig.add_subplot(gs[i])
-            cl = d["clearance_mm"]
-            s_f, h_sp = d["s_fine"],  d["h_spline"]
-            s_t, h_t  = d["s_tool"],  d["h_tool"]
-            s_r, h_r  = d.get("s_raw"), d.get("h_raw")
+        ax = fig.add_subplot(111)
+        cl = d["clearance_mm"]
+        s_f, h_sp = d["s_fine"], d["h_spline"]
+        s_t, h_t  = d["s_tool"], d["h_tool"]
+        s_r, h_r  = d.get("s_raw"), d.get("h_raw")
 
-            # Raw scan points (if provided)
-            if s_r is not None and len(s_r):
-                ax.scatter(s_r, h_r * 1e3, s=1, color="#CCCCCC",
-                           alpha=0.5, zorder=1, label="Raw scan")
+        # Raw scan points (if provided)
+        if s_r is not None and len(s_r):
+            ax.scatter(s_r, h_r * 1e3, s=1, color="#CCCCCC",
+                       alpha=0.5, zorder=1, label="Raw scan")
 
-            # Fitted surface spline
-            ax.plot(s_f, h_sp * 1e3, color=PLOT_SPLINE,
-                    linewidth=1.5, zorder=2, label="Surface spline")
+        # Fitted surface spline
+        ax.plot(s_f, h_sp * 1e3, color=PLOT_SPLINE,
+                linewidth=1.5, zorder=2, label="Surface spline")
 
-            # Clearance band around surface
-            ax.fill_between(
-                s_f,
-                h_sp * 1e3,
-                (h_sp + cl) * 1e3,
-                color=PLOT_TOL_BAND, alpha=0.10, zorder=2,
-                label=f"{cl*1e3:.0f} µm clearance",
-            )
+        # Clearance band around surface
+        ax.fill_between(
+            s_f, h_sp * 1e3, (h_sp + cl) * 1e3,
+            color=PLOT_TOL_BAND, alpha=0.10, zorder=2,
+            label=f"{cl*1e3:.0f} µm clearance",
+        )
 
-            # Conformed toolpath (h + clearance displayed)
-            z_tool = (h_t + cl) * 1e3
-            ax.plot(s_t, z_tool, color=PLOT_TOOLPATH,
-                    linewidth=1.4, marker="o", markersize=3,
-                    zorder=4, label=f"Toolpath ({len(s_t)} pts)")
+        # Conformed toolpath (h + clearance displayed)
+        z_tool = (h_t + cl) * 1e3
+        ax.plot(s_t, z_tool, color=PLOT_TOOLPATH,
+                linewidth=1.4, marker="o", markersize=3,
+                zorder=4, label=f"Toolpath ({len(s_t)} pts)")
 
-            # Annotation
-            st = d.get("error_stats", {})
-            bis = d.get("n_bisected", 0)
-            ax.set_title(
-                f"{d['label']}  |  "
-                f"err mean={st.get('mean',0):+.3f} µm  "
-                f"std={st.get('std',0):.3f} µm  "
-                f"bisected={bis}",
-                fontsize=8,
-            )
-            ax.set_xlabel("Sweep (mm)", fontsize=8)
-            ax.set_ylabel("h (µm)", fontsize=8)
-            ax.tick_params(labelsize=7)
-            ax.legend(fontsize=7, loc="upper right", ncol=2)
-            ax.grid(True, linestyle="--", alpha=0.3)
+        # Annotation
+        st  = d.get("error_stats", {})
+        bis = d.get("n_bisected", 0)
+        ax.set_title(
+            f"{d['label']}  |  "
+            f"err mean={st.get('mean',0):+.3f} µm  "
+            f"std={st.get('std',0):.3f} µm  "
+            f"bisected={bis}",
+            fontsize=9,
+        )
+        ax.set_xlabel("Sweep (mm)", fontsize=9)
+        ax.set_ylabel("h (µm)", fontsize=9)
+        ax.tick_params(labelsize=8)
+        ax.legend(fontsize=8, loc="upper right", ncol=2)
+        ax.grid(True, linestyle="--", alpha=0.3)
 
         self._lines_canvas.draw_idle()
 
