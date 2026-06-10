@@ -88,6 +88,22 @@ class ConformalWindow(ctk.CTkToplevel):
         self._build_ui()
         self._show_panel("load")
 
+        # Keep this window above the hub.  transient() ties its z-order to the
+        # parent; the delayed call re-asserts stacking AFTER CustomTkinter's
+        # ~200 ms deferred Windows titlebar callback (a withdraw/deiconify cycle)
+        # which would otherwise drop the window behind the main window.
+        self.transient(parent)
+        self.after(300, self._bring_to_front)
+
+    def _bring_to_front(self):
+        if not self.winfo_exists():
+            return
+        self.lift()
+        self.focus_force()
+        self.attributes("-topmost", True)
+        self.after(120, lambda: self.winfo_exists()
+                   and self.attributes("-topmost", False))
+
     # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
@@ -265,16 +281,16 @@ class ConformalWindow(ctk.CTkToplevel):
         ).grid(row=row_after+1, column=0, columnspan=2,
                padx=PAD, pady=PAD_S)
 
-        # ── Centre: plots ─────────────────────────────────────────────────
+        # ── Centre: top-view display (left) + plot canvas (right) ─────────
         centre = ctk.CTkFrame(p, fg_color="transparent")
         centre.grid(row=0, column=1, sticky="nsew",
                     padx=PAD_S, pady=PAD)
-        centre.grid_columnconfigure(0, weight=1)
-        centre.grid_rowconfigure(1, weight=1)
+        centre.grid_columnconfigure(1, weight=1)   # canvas column expands
+        centre.grid_rowconfigure(0, weight=1)
 
-        # Mini top-view thumbnail
-        thumb_frame = section_frame(centre, height=180)
-        thumb_frame.grid(row=0, column=0, sticky="ew")
+        # Mini top-view thumbnail (left).  width= sets the column width.
+        thumb_frame = section_frame(centre, width=280)
+        thumb_frame.grid(row=0, column=0, sticky="ns")
         thumb_frame.grid_propagate(False)
 
         self._thumb_view = TopViewPanel(
@@ -283,9 +299,9 @@ class ConformalWindow(ctk.CTkToplevel):
         )
         self._thumb_view.pack(fill="both", expand=True)
 
-        # Surface plot panel
+        # Surface plot panel (right of the thumbnail)
         self._surf_plot = SurfacePlotPanel(centre)
-        self._surf_plot.grid(row=1, column=0, sticky="nsew", pady=(PAD_S, 0))
+        self._surf_plot.grid(row=0, column=1, sticky="nsew", padx=(PAD_S, 0))
 
         # ── Bottom navigation ─────────────────────────────────────────────
         nav = ctk.CTkFrame(p, fg_color="transparent", height=50)
@@ -458,8 +474,28 @@ class ConformalWindow(ctk.CTkToplevel):
             messagebox.showerror("Error", "Load files first.")
             return
 
-        out_path = Path(self._code_path.get())
-        out_path = out_path.with_stem(out_path.stem + "_conformed")
+        # Suggested filename: <original stem>_conformed.txt
+        code_path    = Path(self._code_path.get())
+        default_name = code_path.with_stem(code_path.stem + "_conformed").name
+
+        # Default save location: the app's print_codes/ folder if it exists,
+        # otherwise the folder the code file came from.
+        app_root    = Path(__file__).resolve().parents[1]
+        default_dir = app_root / "print_codes"
+        if not default_dir.is_dir():
+            default_dir = code_path.parent
+
+        chosen = filedialog.asksaveasfilename(
+            title="Save conformed toolpath",
+            defaultextension=".txt",
+            initialdir=str(default_dir),
+            initialfile=default_name,
+            filetypes=[("nScrypt toolpath", "*.txt"), ("All files", "*.*")],
+        )
+        if not chosen:                       # user cancelled the dialog
+            self._set_status("Generate cancelled.")
+            return
+        out_path = Path(chosen)
 
         cfg = self._read_conform_cfg()
         self._set_status("Generating…")
@@ -477,11 +513,14 @@ class ConformalWindow(ctk.CTkToplevel):
                 all_bd = [self._build_block_data(i)
                           for i in range(self._parsed_code.n_blocks)]
 
-                self.after(0, self._on_generate_done, result, all_bd,
-                           str(out_path))
+                # Guard: only call after() if the window still exists
+                if self.winfo_exists():
+                    self.after(0, self._on_generate_done, result, all_bd,
+                               str(out_path))
             except Exception as exc:
-                self.after(0, lambda e=exc:
-                    messagebox.showerror("Generate error", str(e)))
+                if self.winfo_exists():
+                    self.after(0, lambda e=exc:
+                        messagebox.showerror("Generate error", str(e)))
 
         threading.Thread(target=worker, daemon=True).start()
 

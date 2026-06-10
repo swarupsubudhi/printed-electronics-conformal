@@ -261,8 +261,9 @@ class BatchConformalWindow(ctk.CTkToplevel):
             try:
                 parsed = parse(self._code_path_str)
             except Exception as exc:
-                self.after(0, lambda: messagebox.showerror(
-                    "Code file error", str(exc)))
+                if self.winfo_exists():
+                    self.after(0, lambda: messagebox.showerror(
+                        "Code file error", str(exc)))
                 return
 
             all_bd = []
@@ -315,10 +316,12 @@ class BatchConformalWindow(ctk.CTkToplevel):
                     state["icon"].configure(text="!", text_color="#E24B4A")
                     state["result"] = None
 
-            self.after(0, lambda bd=all_bd: self._surf_plot.update(bd))
+            if self.winfo_exists():
+                self.after(0, lambda bd=all_bd: self._surf_plot.update(bd))
             n = len([s for s in self._file_states.values() if s["result"]])
-            self.after(0, lambda: self._set_status(
-                f"Preview ready — {n}/{len(self._file_states)} files processed."))
+            if self.winfo_exists():
+                self.after(0, lambda: self._set_status(
+                    f"Preview ready — {n}/{len(self._file_states)} files processed."))
 
         threading.Thread(target=worker, daemon=True).start()
 
