@@ -48,6 +48,9 @@ from backend.surface_fit    import fit_all, SurfaceFitConfig, FittedSurface
 from backend.interpolation  import Algorithm
 from backend.z_conformer    import conform, ConformConfig
 from backend.preset         import Preset, from_configs, save as save_preset, to_configs
+from backend.area_scan_loader  import load_area_scan, AreaScan
+from backend.area_surface_fit  import fit_area, AreaFittedSurface
+from backend.area_conformer    import conform_area, compute_offset_area
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -75,6 +78,9 @@ class ConformalWindow(ctk.CTkToplevel):
         self._loaded_scan: LoadedScan   | None = None
         self._origin:      OriginMatch  | None = None
         self._surfaces:    list[FittedSurface]  = []
+
+        self._area_scan:    AreaScan          | None = None
+        self._area_surface: AreaFittedSurface | None = None
 
         # ConformConfig controls (bound to tk variables)
         self._v_algo       = tk.StringVar(value=Algorithm.ADAPTIVE_CURVATURE.value)
@@ -157,7 +163,7 @@ class ConformalWindow(ctk.CTkToplevel):
             sticky="w")
 
         # scan.xyz
-        label(inner, "Scan file (.xyz)", style="normal").grid(
+        label(inner, "Scan file (.xyz/.ply)", style="normal").grid(
             row=1, column=0, sticky="w", padx=PAD, pady=PAD_S)
         ctk.CTkEntry(inner, textvariable=self._scan_path,
                      font=FONT_SMALL, width=420).grid(
@@ -181,11 +187,11 @@ class ConformalWindow(ctk.CTkToplevel):
             row=3, column=0, sticky="w", padx=PAD, pady=PAD_S)
         type_frame = ctk.CTkFrame(inner, fg_color="transparent")
         type_frame.grid(row=3, column=1, sticky="w", padx=PAD_S, pady=PAD_S)
-        for val, txt in [("path", "Path scan"), ("area", "Area scan (future)")]:
+        for val, txt in [("path", "Path scan"), ("area", "Area scan (dev)")]:
             ctk.CTkRadioButton(
                 type_frame, text=txt, variable=self._scan_type,
                 value=val, font=FONT_LABEL,
-                state="normal" if val == "path" else "disabled",
+                state="normal",
             ).pack(side="left", padx=(0, PAD))
 
         # Load from preset
@@ -344,10 +350,13 @@ class ConformalWindow(ctk.CTkToplevel):
     # ── File browsers ─────────────────────────────────────────────────────────
 
     def _browse_scan(self):
-        path = filedialog.askopenfilename(
-            title="Select scan file",
-            filetypes=[("XYZ files", "*.xyz"), ("All files", "*.*")],
-        )
+        if self._scan_type.get() == "area":
+            filetypes = [("PLY files", "*.ply"), ("All files", "*.*")]
+            title     = "Select area scan file (.ply)"
+        else:
+            filetypes = [("XYZ files", "*.xyz"), ("All files", "*.*")]
+            title     = "Select scan file (.xyz)"
+        path = filedialog.askopenfilename(title=title, filetypes=filetypes)
         if path:
             self._scan_path.set(path)
 
@@ -366,7 +375,7 @@ class ConformalWindow(ctk.CTkToplevel):
         code_p = self._code_path.get().strip()
 
         if not scan_p or not os.path.isfile(scan_p):
-            messagebox.showerror("Error", "Select a valid scan.xyz file.")
+            messagebox.showerror("Error", "Select a valid scan file.")
             return
         if not code_p or not os.path.isfile(code_p):
             messagebox.showerror("Error", "Select a valid code.txt file.")
@@ -375,29 +384,56 @@ class ConformalWindow(ctk.CTkToplevel):
         self._set_status("Loading files…")
         self.update_idletasks()
 
+        is_area = (self._scan_type.get() == "area")
+
+        # Extension vs scan type consistency check
+        scan_ext = os.path.splitext(scan_p)[1].lower()
+        if is_area and scan_ext != ".ply":
+            if not messagebox.askyesno(
+                "File type warning",
+                f"Area scan mode selected but file is '{scan_ext}' (expected .ply).\n"
+                "Continue anyway?"
+            ):
+                return
+        elif not is_area and scan_ext not in (".xyz", ".txt"):
+            if not messagebox.askyesno(
+                "File type warning",
+                f"Path scan mode selected but file is '{scan_ext}' (expected .xyz).\n"
+                "Continue anyway?"
+            ):
+                return
+
         try:
             self._parsed_code = parse(code_p)
-            self._loaded_scan = load_scan(
-                scan_p, scan_type=self._scan_type.get()
-            )
-            self._origin  = compute_offset(self._parsed_code, self._loaded_scan)
-            fit_cfg       = self._read_fit_cfg()
-            self._surfaces = fit_all(self._loaded_scan, fit_cfg)
+
+            if is_area:
+                self._area_scan    = load_area_scan(scan_p)
+                self._area_surface = fit_area(self._area_scan)
+                self._origin       = compute_offset_area(
+                    self._parsed_code, self._area_scan
+                )
+                self._loaded_scan  = None
+                self._surfaces     = []
+            else:
+                self._loaded_scan  = load_scan(scan_p, scan_type="path")
+                self._origin       = compute_offset(
+                    self._parsed_code, self._loaded_scan
+                )
+                fit_cfg            = self._read_fit_cfg()
+                self._surfaces     = fit_all(self._loaded_scan, fit_cfg)
+                self._area_scan    = None
+                self._area_surface = None
+
         except Exception as exc:
             messagebox.showerror("Load error", str(exc))
             self._set_status("Load failed.")
             return
 
-        # Coverage warning
         if not self._origin.coverage_ok:
             msg = "Coverage warning:\n" + "\n".join(self._origin.warnings)
             messagebox.showwarning("Coverage", msg)
 
-        # Populate top-view panels
-        scan_xy = self._loaded_scan.all_surface_xy()
         code_xy = [np.array(xy) for xy in self._parsed_code.all_print_abs_xy()]
-
-        # Apply origin offset to code XY for overlay
         code_xy_scan = [
             np.column_stack([
                 xy[:, 0] + self._origin.dx,
@@ -405,19 +441,34 @@ class ConformalWindow(ctk.CTkToplevel):
             ])
             for xy in code_xy
         ]
-        scan_h = [ln.h for ln in self._loaded_scan.lines]
+
+        if is_area:
+            indices    = range(0, len(self._area_scan.x_unique), 8)
+            xs         = self._area_scan.x_unique
+            ys         = self._area_scan.y_unique
+            scan_xy    = [np.column_stack([np.full(len(ys), xs[i]), ys])
+                          for i in indices]
+            scan_h     = [self._area_scan.H_grid[:, i] for i in indices]
+            status_msg = (
+                f"Loaded: area scan {self._area_scan.nx}×{self._area_scan.ny}, "
+                f"{self._parsed_code.n_blocks} code blocks."
+            )
+        else:
+            scan_xy    = self._loaded_scan.all_surface_xy()
+            scan_h     = [ln.h for ln in self._loaded_scan.lines]
+            status_msg = (
+                f"Loaded: {self._loaded_scan.n_lines} scan lines, "
+                f"{self._parsed_code.n_blocks} code blocks."
+            )
 
         for panel in (self._top_view, self._thumb_view):
             panel.load(
-                scan_xy    = [xy.astype(float) for xy in scan_xy],
-                code_xy    = [xy.astype(float) for xy in code_xy_scan],
-                scan_h     = [h.astype(float) for h in scan_h],
+                scan_xy = [xy.astype(float) for xy in scan_xy],
+                code_xy = [xy.astype(float) for xy in code_xy_scan],
+                scan_h  = [h.astype(float) for h in scan_h],
             )
 
-        self._set_status(
-            f"Loaded: {self._loaded_scan.n_lines} scan lines, "
-            f"{self._parsed_code.n_blocks} code blocks."
-        )
+        self._set_status(status_msg)
         self._show_panel("topview")
 
     # ── Path selection callback ───────────────────────────────────────────────
@@ -441,6 +492,9 @@ class ConformalWindow(ctk.CTkToplevel):
     # ── Configure panel entry ─────────────────────────────────────────────────
 
     def _go_configure(self):
+        if not self._parsed_code:
+            messagebox.showinfo("", "Load files first.")
+            return
         self._show_panel("config")
         if self._selected_block >= 0:
             self._preview_selected()
@@ -448,7 +502,7 @@ class ConformalWindow(ctk.CTkToplevel):
     # ── Preview single block ──────────────────────────────────────────────────
 
     def _preview_selected(self):
-        if self._selected_block < 0 or not self._surfaces:
+        if self._selected_block < 0 or (not self._surfaces and self._area_surface is None):
             return
         try:
             bd = self._build_block_data(self._selected_block)
@@ -505,17 +559,21 @@ class ConformalWindow(ctk.CTkToplevel):
 
         def worker():
             try:
-                result = conform(
-                    self._parsed_code, self._loaded_scan,
-                    self._origin, self._surfaces, cfg,
-                )
+                if self._area_surface is not None:
+                    result = conform_area(
+                        self._parsed_code, self._area_surface,
+                        self._origin, cfg,
+                    )
+                else:
+                    result = conform(
+                        self._parsed_code, self._loaded_scan,
+                        self._origin, self._surfaces, cfg,
+                    )
                 result.write(out_path)
 
-                # Build plot data for all blocks
                 all_bd = [self._build_block_data(i)
                           for i in range(self._parsed_code.n_blocks)]
 
-                # Guard: only call after() if the window still exists
                 if self.winfo_exists():
                     self.after(0, self._on_generate_done, result, all_bd,
                                str(out_path))
@@ -539,43 +597,86 @@ class ConformalWindow(ctk.CTkToplevel):
     # ── Block data builder (for plots) ────────────────────────────────────────
 
     def _build_block_data(self, block_index: int) -> dict:
-        from backend.scan_loader    import nearest_line
-        from backend.surface_fit    import surface_for_step
-        from backend.interpolation  import run as interp_run
+        blk = self._parsed_code.blocks[block_index]
+        cfg = self._read_conform_cfg()
 
-        blk  = self._parsed_code.blocks[block_index]
-        cfg  = self._read_conform_cfg()
+        if self._area_surface is not None:
+            from backend.area_conformer import _enforce_z_rate_2d
+            abs_pts = [(blk.abs_start[0], blk.abs_start[1])]
+            for mv in blk.moves:
+                abs_pts.append((mv.abs_x, mv.abs_y))
+            s_xy  = [self._origin.to_scan(cx, cy) for cx, cy in abs_pts]
+            h_pts = [self._area_surface.h_at(sx, sy) for sx, sy in s_xy]
+            s_xy, h_pts, _, _ = _enforce_z_rate_2d(
+                self._area_surface, s_xy, h_pts,
+                cfg.print_speed, cfg.max_z_rate,
+            )
+            dx_tot = s_xy[-1][0] - s_xy[0][0]
+            dy_tot = s_xy[-1][1] - s_xy[0][1]
+            if abs(dx_tot) >= abs(dy_tot):
+                s_tool = np.array([p[0] for p in s_xy])
+            else:
+                s_tool = np.array([p[1] for p in s_xy])
+            frac    = np.linspace(0, 1, 300)
+            xy_fine = np.column_stack([
+                s_xy[0][0] + frac * (s_xy[-1][0] - s_xy[0][0]),
+                s_xy[0][1] + frac * (s_xy[-1][1] - s_xy[0][1]),
+            ])
+            h_spline    = self._area_surface.h_at_array(xy_fine)
+            s_fine      = np.linspace(float(s_tool[0]), float(s_tool[-1]), 300)
+            h_pts_arr   = np.array(h_pts)
+            s_xy_arr    = np.array(s_xy)
+            h_true      = self._area_surface.h_at_array(s_xy_arr)
+            err_arr     = (h_pts_arr - h_true) * 1e3
+            error_stats = {
+                "mean": float(np.mean(err_arr)),
+                "std":  float(np.std(err_arr)),
+                "min":  float(np.min(err_arr)),
+                "max":  float(np.max(err_arr)),
+            }
+            return {
+                "label":                blk.label,
+                "step_val":             s_xy[0][1],
+                "s_fine":               s_fine,
+                "h_spline":             h_spline,
+                "clearance_mm":         cfg.clearance_mm,
+                "s_tool":               s_tool,
+                "h_tool":               h_pts_arr,
+                "s_raw":                s_tool,
+                "h_raw":                h_pts_arr,
+                "error_stats":          error_stats,
+                "n_bisected":           0,
+                "constraint_satisfied": True,
+            }
 
-        sx0, sy0 = self._origin.to_scan(*blk.abs_start[:2])
+        # ── Path scan (existing logic) ─────────────────────────────────────
+        from backend.scan_loader   import nearest_line
+        from backend.surface_fit   import surface_for_step
+        from backend.interpolation import run as interp_run
+        from backend.z_conformer   import _sweep_positions_scan
+
+        sx0, sy0  = self._origin.to_scan(*blk.abs_start[:2])
         step_scan = (sx0 if self._loaded_scan.step_axis == 0 else sy0)
         surf      = surface_for_step(self._surfaces, step_scan)
         scan_ln   = nearest_line(self._loaded_scan, step_scan)
-
-        from backend.z_conformer import _sweep_positions_scan
-        s_code = _sweep_positions_scan(
-            blk, self._origin, self._loaded_scan.sweep_axis
-        )
-
-        interp = interp_run(surf, s_code, scan_ln, cfg.to_interp_cfg())
-
-        s_fine = np.linspace(
-            float(s_code.min()), float(s_code.max()), 300
-        )
-        h_spline = surf.h_at_array(s_fine)
-
+        s_code    = _sweep_positions_scan(blk, self._origin,
+                                          self._loaded_scan.sweep_axis)
+        interp    = interp_run(surf, s_code, scan_ln, cfg.to_interp_cfg())
+        s_fine    = np.linspace(float(s_code.min()), float(s_code.max()), 300)
+        h_spline  = surf.h_at_array(s_fine)
         return {
-            "label":               blk.label,
-            "step_val":            step_scan,
-            "s_fine":              s_fine,
-            "h_spline":            h_spline,
-            "clearance_mm":        cfg.clearance_mm,
-            "s_tool":              interp.s_pts,
-            "h_tool":              interp.h_pts,
-            "s_raw":               scan_ln.sweep_coords,
-            "h_raw":               scan_ln.h,
-            "error_stats":         interp.error_stats,
-            "n_bisected":          interp.n_bisected,
-            "constraint_satisfied":interp.constraint_satisfied,
+            "label":                blk.label,
+            "step_val":             step_scan,
+            "s_fine":               s_fine,
+            "h_spline":             h_spline,
+            "clearance_mm":         cfg.clearance_mm,
+            "s_tool":               interp.s_pts,
+            "h_tool":               interp.h_pts,
+            "s_raw":                scan_ln.sweep_coords,
+            "h_raw":                scan_ln.h,
+            "error_stats":          interp.error_stats,
+            "n_bisected":           interp.n_bisected,
+            "constraint_satisfied": interp.constraint_satisfied,
         }
 
     # ── Config readers ────────────────────────────────────────────────────────
